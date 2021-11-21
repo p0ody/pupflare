@@ -15,15 +15,21 @@ const responseHeadersToRemove = ["Accept-Ranges", "Content-Length", "Keep-Alive"
 
 (async () => {
     let options = {
-        headless: true,
+        headless: false,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     };
+    let proxyAuth = false;
     if (process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD)
         options.executablePath = '/usr/bin/chromium-browser';
-    if (process.env.PUPPETEER_HEADFUL)
-        options.headless = false;
+    /*if (process.env.PUPPETEER_HEADFUL)
+        options.headless = false;*/
     if (process.env.PUPPETEER_PROXY)
         options.args.push(`--proxy-server=${process.env.PUPPETEER_PROXY}`);
+    if (process.env.PUPPETEER_PROXY_AUTH) {
+        let authArray = process.env.PUPPETEER_PROXY_AUTH.split(":");
+        proxyAuth = { username: authArray[0], password: authArray[1] };
+    }
+    
     const browser = await puppeteer.launch(options);
     app.use(async ctx => {
         if (ctx.query.url) {
@@ -32,6 +38,10 @@ const responseHeadersToRemove = ["Accept-Ranges", "Content-Length", "Keep-Alive"
             let responseData;
             let responseHeaders;
             const page = await browser.newPage();
+            // Add a way to authenticate a proxy
+            if (proxyAuth) {
+                page.authenticate(proxyAuth);
+            }
             if (ctx.method == "POST") {
                 await page.removeAllListeners('request');
                 await page.setRequestInterception(true);
